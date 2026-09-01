@@ -26,52 +26,32 @@ DuoAttention improves this idea by treating attention heads differently:
 
 This project tests whether that hybrid strategy can retrieve old information better than StreamingLLM while using less memory than a fully dense cache.
 
-## Project architecture
+## Zrchitecture
 
 ```mermaid
 flowchart LR
-    A[Long synthetic context] --> B[Hidden random needle]
-    B --> C[Needle retrieval question]
+    A[Long context with hidden fact] --> B[Same model and retrieval question]
 
-    C --> D[Dense cache]
-    C --> E[StreamingLLM cache]
-    C --> F[Hybrid cache]
+    B --> D[Dense cache]
+    B --> S[StreamingLLM cache]
+    B --> H[Hybrid cache]
 
-    D --> G[Retrieval accuracy]
-    D --> H[Peak GPU memory]
+    D --> D1[Every attention group keeps full KV history]
+    D1 --> D2[High retrieval quality<br/>High memory use]
 
-    E --> G
-    E --> H
+    S --> S1[Every group keeps sink plus recent tokens]
+    S1 --> S2[Low memory use<br/>Old facts may be lost]
 
-    F --> G
-    F --> H
+    H --> H1[Retrieval groups keep full KV history]
+    H --> H2[Streaming groups keep sink plus recent tokens]
+    H2 --> H3[Better retrieval than StreamingLLM<br/>Lower memory than dense]
 
-    G --> I[Comparison tables and visualizations]
-    H --> I
+    D2 --> E[Compare retrieval accuracy<br/>and peak GPU memory]
+    S2 --> E
+    H3 --> E
+
+    E --> F[Final result]
 ```
-
-## Cache policies
-
-```mermaid
-flowchart TB
-    A[Same long context] --> B[Dense]
-    A --> C[StreamingLLM]
-    A --> D[Hybrid]
-
-    B --> B1[Every attention group keeps full history]
-
-    C --> C1[All groups keep sink tokens]
-    C1 --> C2[All groups keep recent tokens]
-    C2 --> C3[Middle tokens are removed]
-
-    D --> D1[Retrieval groups]
-    D --> D2[Streaming groups]
-
-    D1 --> D3[Full KV history]
-    D2 --> D4[Sink tokens plus recent tokens]
-    D2 --> D5[Middle tokens removed]
-```
-
 ## What was implemented?
 
 The experiment uses:
