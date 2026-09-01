@@ -1,12 +1,5 @@
 # Hybrid Streaming Attention
 
-A Google Colab research project that tests whether different attention groups should keep different amounts of long-context history.
-
-The project combines ideas from:
-
-- [StreamingLLM: Efficient Streaming Language Models with Attention Sinks](https://arxiv.org/abs/2309.17453)
-- [DuoAttention: Efficient Long-Context LLM Inference with Retrieval and Streaming Heads](https://arxiv.org/abs/2410.10819)
-
 ## Research question
 
 Long-context language models store key-value (KV) states for previous tokens. As the context becomes longer, the KV cache uses more GPU memory.
@@ -15,29 +8,34 @@ This project checks whether a hybrid cache can:
 
 - Use less memory than a fully dense cache.
 - Retrieve old information better than uniform StreamingLLM eviction.
-- Continue working at long context lengths on a limited Colab GPU.
 
-The experiment focuses on retrieval accuracy and GPU memory. Generation speed is not used as a main metric.
+The project combines ideas from:
+
+- [StreamingLLM: Efficient Streaming Language Models with Attention Sinks](https://arxiv.org/abs/2309.17453)
+- [DuoAttention: Efficient Long-Context LLM Inference with Retrieval and Streaming Heads](https://arxiv.org/abs/2410.10819)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Same synthetic context<br/>with hidden reference value] --> B[Same model and question]
+    A[Same long context<br/>and same question] --> B[Three cache policies]
 
-    B --> D[Dense cache<br/>All 4 KV groups keep full history]
-    B --> S[StreamingLLM cache<br/>All groups keep sinks plus recent tokens]
-    B --> H[Hybrid cache<br/>2 retrieval groups plus 2 streaming groups]
+    B --> D[Dense cache]
+    D --> D1[Full KV history]
+    D1 --> F[Final answer]
 
-    D --> D1[Generate answer]
-    S --> S1[Generate answer]
-    H --> H1[Generate answer]
+    B --> S[StreamingLLM]
+    S --> S1[Sink tokens plus recent tokens]
+    S1 --> F1[Final answer]
 
-    D1 --> E[Measure retrieval accuracy<br/>and peak GPU memory]
-    S1 --> E
-    H1 --> E
+    B --> H[Hybrid cache]
+    H --> R[Retrieval groups]
+    R --> R1[Full KV history]
+    R1 --> F1[Final answer]
 
-    E --> F[Compare quality and memory]
+    H --> T[Streaming groups]
+    T --> T1[Sink tokens plus recent tokens]
+    T1 --> F1[Final answer]
 ```
 
 ## Model and environment
@@ -52,8 +50,6 @@ flowchart LR
 - Transformers: `5.15.1`
 - BitsAndBytes: `0.49.2`
 - Random seed: `42`
-
-The 7B model fits the tested Colab GPU in 4-bit mode. However, the full dense cache does not fit at an 8,192-token context on the tested GPU.
 
 ## Cache policies
 
@@ -158,39 +154,6 @@ The dense 8,192-token configuration has no accuracy value because all nine sampl
 - Hybrid memory was 42.9% lower than dense memory at 4,096 tokens.
 - The hybrid method did not match dense-cache accuracy, but it provided a better quality-memory trade-off than uniform StreamingLLM eviction.
 
-## Visualizations
-
-The notebook produces visualizations showing:
-
-- Which tokens each cache policy keeps.
-- Where retrieval succeeds or fails.
-- Which configurations run out of memory.
-- The relationship between retrieval accuracy and peak memory.
-
-The most important visual is the retrieval-memory comparison. It shows whether a method can remain accurate without requiring the complete dense KV cache.
-
-## Repository structure
-
-```text
-hybrid-streaming-attention/
-├── hybrid_streaming_attention.ipynb
-├── README.md
-├── data/
-│   ├── needle_dataset.jsonl
-│   └── needle_dataset_metadata.csv
-├── results/
-│   ├── dense_results.csv
-│   ├── dense_summary.csv
-│   ├── optimized_hybrid_results.csv
-│   ├── all_experiment_results.csv
-│   ├── final_result_summary.csv
-│   └── retrieval_by_depth.csv
-└── visualizations/
-    ├── cache_policy_explanation.png
-    ├── retrieval_outcome_grid.png
-    └── retrieval_memory_tradeoff.png
-```
-
 ## Reproduce the experiment
 
 1. Open the notebook in Google Colab.
@@ -226,6 +189,3 @@ In this experiment, the hybrid method:
 - Completed contexts where dense caching ran out of memory.
 - Retrieved substantially more hidden information than pure StreamingLLM.
 
-The main lesson is:
-
-> Different attention groups may need different amounts of context history.
