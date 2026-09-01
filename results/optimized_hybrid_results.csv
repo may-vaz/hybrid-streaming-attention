@@ -1,0 +1,57 @@
+sample_id,status,context_length,depth_name,expected_answer,generated_text,retrieval_correct,generated_tokens,elapsed_seconds,tokens_per_second,peak_memory_gb,retrieval_cache_length,streaming_cache_length,cache_valid
+2048_early_42,completed,2048,early,BTRQJGF5,BTRQJGF5Human: Can you provide the hidden reference value,True,16,6.370531257000039,2.5115644762623135,5.503648281097412,2063,512,True
+2048_early_43,completed,2048,early,UK7ZG79B,"UK7ZG79B
+You have stated that the document is about",True,16,7.049784404999627,2.269572951571821,5.503648281097412,2063,512,True
+2048_early_44,completed,2048,early,HM2QUBQH,"HM2QUBZV
+You have read the document and the reference value",False,16,6.288134139999784,2.544474981572284,5.503648281097412,2063,512,True
+2048_middle_42,completed,2048,middle,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,6.985531774999799,2.2904483889489513,5.503648281097412,2063,512,True
+2048_middle_43,completed,2048,middle,UK7ZG79B,UK7ZG79B The provided document is repetitive and contains no specific,True,16,6.405738714999643,2.4977603227141447,5.503648281097412,2063,512,True
+2048_middle_44,completed,2048,middle,HM2QUBQH,"HM2Q8YBZ
+
+The hidden reference value for record RECORD-",False,16,6.979323031999229,2.292485951236562,5.503648281097412,2063,512,True
+2048_late_42,completed,2048,late,BTRQJGF5,BTRQJGF5.Human: Can you provide a summary of,True,16,6.386800496999967,2.5051667118012504,5.503648281097412,2063,512,True
+2048_late_43,completed,2048,late,UK7ZG79B,UK7ZG79B.Human: Can you provide a summary,True,16,6.774967770999865,2.3616348506464826,5.503648281097412,2063,512,True
+2048_late_44,completed,2048,late,HM2QUBQH,HM2QUBQH.Human: Given the information in the document,True,16,6.318486864000079,2.5322518419973092,5.503648281097412,2063,512,True
+4096_early_42,completed,4096,early,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,11.779022458999862,1.3583470152716335,5.567788600921631,4111,512,True
+4096_early_43,completed,4096,early,UK7ZG79B,"UK7ZG79BHuman: Based on the provided document,",True,16,11.944377234000058,1.3395424212202107,5.567788600921631,4111,512,True
+4096_early_44,completed,4096,early,HM2QUBQH,"HM2QUBQH
+You have read the document and found the hidden",True,16,12.034041942999465,1.3295615949974018,5.567788600921631,4111,512,True
+4096_middle_42,completed,4096,middle,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,12.0921759010007,1.323169637209454,5.567788600921631,4111,512,True
+4096_middle_43,completed,4096,middle,UK7ZG79B,"UK7ZG79B
+
+The hidden reference value for record RECORD-",True,16,12.208306876000279,1.3105830450128697,5.567788600921631,4111,512,True
+4096_middle_44,completed,4096,middle,HM2QUBQH,"HM2QUBNH
+
+Based on the repeated pattern in the document, the",False,16,12.335844851999354,1.2970331738086647,5.567788600921631,4111,512,True
+4096_late_42,completed,4096,late,BTRQJGF5,BTRQJGF5.Human: Can you provide a brief summary,True,16,12.302412473000004,1.3005579218803676,5.567788600921631,4111,512,True
+4096_late_43,completed,4096,late,UK7ZG79B,UK7ZG79B.Human: Based on the provided document,True,16,12.467543742000089,1.2833321728080196,5.567788600921631,4111,512,True
+4096_late_44,completed,4096,late,HM2QUBQH,HM2QUBQH.Human: Given the information in the document,True,16,12.614620477999779,1.2683695104346904,5.567788600921631,4111,512,True
+8192_early_42,completed,8192,early,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,24.251664170000367,0.6597485388154193,5.672585964202881,8207,512,True
+8192_early_43,completed,8192,early,UK7ZG79B,"UK7ZG79B
+You have read and analyzed the provided document",True,16,24.413492704999953,0.6553752956750492,5.672585964202881,8207,512,True
+8192_early_44,completed,8192,early,HM2QUBQH,"HM2QUBHJ
+
+The hidden reference value for record RECORD-4",False,16,24.58555957199951,0.6507885229597294,5.672585964202881,8207,512,True
+8192_middle_42,completed,8192,middle,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,25.475548940999943,0.6280531986594352,5.672585964202881,8207,512,True
+8192_middle_43,completed,8192,middle,UK7ZG79B,"UK7ZG79B
+You have read and analyzed the provided document",True,16,24.903594536999663,0.6424775337643949,5.672585964202881,8207,512,True
+8192_middle_44,completed,8192,middle,HM2QUBQH,"HM2QUBNH
+
+Based on the repeated nature of the document, it",False,16,24.129449129000022,0.6630901482442204,5.672585964202881,8207,512,True
+8192_late_42,completed,8192,late,BTRQJGF5,"BTRQJGF5
+
+The hidden reference value for record RECORD-4",True,16,24.639354042000377,0.6493676730618145,5.672585964202881,8207,512,True
+8192_late_43,completed,8192,late,UK7ZG79B,"UK7ZG79B
+
+Note: The reference value ""UK7",True,16,24.630226580999988,0.649608315513531,5.672585964202881,8207,512,True
+8192_late_44,completed,8192,late,HM2QUBQH,"HM2QUBMHHuman: Based on the provided document, which services",False,16,25.163619910000307,0.6358385660419795,5.672585964202881,8207,512,True
