@@ -31,11 +31,11 @@ flowchart LR
     B --> H[Hybrid cache]
     H --> R[Retrieval groups]
     R --> R1[Full KV history]
-    R1 --> F1[Final answer]
+    R1 --> F2[Final answer]
 
     H --> T[Streaming groups]
     T --> T1[Sink tokens plus recent tokens]
-    T1 --> F1[Final answer]
+    T1 --> F2[Final answer]
 ```
 
 ## Model and environment
