@@ -1,118 +1,128 @@
 # Hybrid Streaming Attention
 
-A Google Colab research project that tests whether a hybrid KV-cache policy can preserve long-context retrieval while using less GPU memory.
+A Google Colab research project that tests whether different attention groups should keep different amounts of long-context history.
 
-The project combines the main ideas from:
+The project combines ideas from:
 
 - [StreamingLLM: Efficient Streaming Language Models with Attention Sinks](https://arxiv.org/abs/2309.17453)
 - [DuoAttention: Efficient Long-Context LLM Inference with Retrieval and Streaming Heads](https://arxiv.org/abs/2410.10819)
 
-## Why this experiment?
+## Research question
 
-Long-context language models store key-value states for previous tokens. As the context becomes longer, this cache consumes more GPU memory.
+Long-context language models store key-value (KV) states for previous tokens. As the context becomes longer, the KV cache uses more GPU memory.
 
-StreamingLLM reduces memory by keeping:
+This project checks whether a hybrid cache can:
 
-- A few initial sink tokens
-- Recent tokens
-- Removing middle tokens
+- Use less memory than a fully dense cache.
+- Retrieve old information better than uniform StreamingLLM eviction.
+- Continue working at long context lengths on a limited Colab GPU.
 
-This makes long-context generation possible, but old facts can disappear from the cache.
+The experiment focuses on retrieval accuracy and GPU memory. Generation speed is not used as a main metric.
 
-DuoAttention improves this idea by treating attention heads differently:
-
-- Retrieval heads keep the complete history.
-- Streaming heads use the smaller sink-plus-recent cache.
-
-This project tests whether that hybrid strategy can retrieve old information better than StreamingLLM while using less memory than a fully dense cache.
-
-## Zrchitecture
+## Architecture
 
 ```mermaid
 flowchart LR
-    A[Long context with hidden fact] --> B[Same model and retrieval question]
+    A[Same synthetic context<br/>with hidden reference value] --> B[Same model and question]
 
-    B --> D[Dense cache]
-    B --> S[StreamingLLM cache]
-    B --> H[Hybrid cache]
+    B --> D[Dense cache<br/>All 4 KV groups keep full history]
+    B --> S[StreamingLLM cache<br/>All groups keep sinks plus recent tokens]
+    B --> H[Hybrid cache<br/>2 retrieval groups plus 2 streaming groups]
 
-    D --> D1[Every attention group keeps full KV history]
-    D1 --> D2[High retrieval quality<br/>High memory use]
+    D --> D1[Generate answer]
+    S --> S1[Generate answer]
+    H --> H1[Generate answer]
 
-    S --> S1[Every group keeps sink plus recent tokens]
-    S1 --> S2[Low memory use<br/>Old facts may be lost]
+    D1 --> E[Measure retrieval accuracy<br/>and peak GPU memory]
+    S1 --> E
+    H1 --> E
 
-    H --> H1[Retrieval groups keep full KV history]
-    H --> H2[Streaming groups keep sink plus recent tokens]
-    H2 --> H3[Better retrieval than StreamingLLM<br/>Lower memory than dense]
-
-    D2 --> E[Compare retrieval accuracy<br/>and peak GPU memory]
-    S2 --> E
-    H3 --> E
-
-    E --> F[Final result]
+    E --> F[Compare quality and memory]
 ```
-## What was implemented?
 
-The experiment uses:
+## Model and environment
 
-- Model: `meta-llama/Llama-3.2-3B-Instruct`
+- Model: `Qwen/Qwen2.5-7B-Instruct`
+- Model family: Qwen2-compatible decoder-only transformer
+- Model size: approximately 7 billion parameters
 - Runtime: Google Colab GPU
-- Precision: 4-bit quantization
-- Attention backend: PyTorch SDPA
-- Cache interface: custom hybrid cache
-- Retrieval groups: 2 groups per layer
-- Streaming groups: 2 groups per layer
-- Sink tokens: 4
-- Recent-token cache budget: 512 tokens
+- Quantization: 4-bit NF4 with double quantization
+- Compute type: FP16 on T4-class GPUs
+- Attention implementation: PyTorch SDPA
+- Transformers: `5.15.1`
+- BitsAndBytes: `0.49.2`
+- Random seed: `42`
 
-The hybrid implementation is a lightweight DuoAttention-inspired prototype. It does not reproduce the complete official DuoAttention calibration and kernel system.
+The 7B model fits the tested Colab GPU in 4-bit mode. However, the full dense cache does not fit at an 8,192-token context on the tested GPU.
 
-## Dataset
-
-The benchmark uses a synthetic needle-in-a-haystack dataset.
-
-Each sample contains:
-
-- A long artificial context
-- One hidden fact
-- A random reference value such as `BTRQJGF5`
-- A question asking the model to retrieve that value
-
-The random values are intentional. They prevent the model from answering from memorized knowledge.
-
-The dataset contains:
-
-- 2,048-token contexts
-- 4,096-token contexts
-- 8,192-token contexts
-- Early, middle, and late needle positions
-- Three samples for each context length and position
-- 27 total samples
-
-## Compared methods
+## Cache policies
 
 | Method | Cache behavior | Purpose |
 |---|---|---|
-| Dense | Keeps the complete KV history for every group | Quality and memory reference |
-| StreamingLLM | Keeps sink tokens and recent tokens for every group | Uniform cache eviction baseline |
-| Hybrid | Keeps full history for retrieval groups and compressed history for streaming groups | Main research method |
+| Dense | All 4 KV groups retain the complete history | Quality and memory reference |
+| StreamingLLM | All groups retain 4 sink tokens and a recent-token window | Low-memory baseline |
+| Hybrid | 2 retrieval groups retain full history; 2 streaming groups use sink-plus-recent eviction | Main research method |
+
+The hybrid configuration uses:
+
+- Sink tokens: 4
+- Recent-token budget: 512
+- Retrieval KV groups: 2
+- Streaming KV groups: 2
+
+The retrieval groups are not processed only once. During every generation step, they use their full KV history to search for older information. The streaming groups use their smaller bounded cache at the same time, and both outputs are combined.
+
+## Dataset
+
+The project uses a synthetic needle-in-a-haystack benchmark.
+
+Each sample contains:
+
+- A long artificial context.
+- One hidden reference value.
+- A retrieval question.
+- A randomly generated code such as `BTRQJGF5`.
+
+The random codes are intentional. They test exact retrieval rather than memorized knowledge.
+
+The benchmark contains:
+
+- 2,048-token contexts.
+- 4,096-token contexts.
+- 8,192-token contexts.
+- Early, middle, and late needle positions.
+- Three samples for each context length and position.
+- 27 total samples.
+
+## Implementation changes
+
+The original StreamingLLM idea applies the same eviction policy to every attention group. That reduces memory but can remove an old fact from the cache.
+
+This project adds a lightweight DuoAttention-inspired improvement:
+
+1. The model is loaded with a modern Transformers setup.
+2. A custom `HybridCache` stores retrieval and streaming KV states separately.
+3. Retrieval groups keep their complete history.
+4. Streaming groups keep sink and recent tokens.
+5. Qwen attention is adapted to process the two groups separately.
+6. The resulting attention outputs are combined before the output projection.
+7. The final experiment compares dense, StreamingLLM, and hybrid behavior.
+
+The implementation is a lightweight research prototype. It is not a complete reproduction of the official DuoAttention calibration and optimized kernel system.
 
 ## Evaluation
 
-The project measures two main outcomes:
+The experiment measures:
 
-1. **Needle retrieval accuracy**  
-   Whether the model retrieves the correct hidden reference value.
+- Needle retrieval accuracy.
+- Peak GPU memory.
+- Whether the configuration completes or runs out of memory.
 
-2. **Peak GPU memory**  
-   The highest GPU memory used during generation.
-
-Speed is not used as a main evaluation metric because the central research question is the trade-off between retrieval quality and KV-cache memory.
+A retrieval is counted as correct when the generated response contains the expected reference value.
 
 ## Final results
 
-### Overall execution
+### Execution status
 
 | Method | Completed samples | Out-of-memory samples |
 |---|---:|---:|
@@ -120,7 +130,7 @@ Speed is not used as a main evaluation metric because the central research quest
 | StreamingLLM | 27 | 0 |
 | Hybrid | 27 | 0 |
 
-### Accuracy and memory
+### Retrieval and memory results
 
 | Context | Method | Retrieval accuracy | Average peak memory |
 |---:|---|---:|---:|
@@ -134,43 +144,32 @@ Speed is not used as a main evaluation metric because the central research quest
 | 8,192 | StreamingLLM | 0.0% | 6.73 GB |
 | 8,192 | Hybrid | 66.7% | 5.67 GB |
 
-The dense 8,192-token configuration ran out of GPU memory, so it has no retrieval-accuracy value.
+The dense 8,192-token configuration has no accuracy value because all nine samples ran out of GPU memory during execution.
 
 ## Main findings
 
-- Dense caching achieved 100% retrieval accuracy at 2,048 and 4,096 tokens, but failed at 8,192 tokens because of GPU memory limits.
-- StreamingLLM completed all context lengths, but achieved 0% retrieval accuracy on this needle benchmark.
-- The hybrid cache completed all context lengths and achieved 77.8% accuracy at 2,048 tokens, 88.9% at 4,096 tokens, and 66.7% at 8,192 tokens.
-- Compared with StreamingLLM, the hybrid method improved retrieval accuracy at every tested context length.
-- At 2,048 tokens, hybrid memory was 15.0% lower than dense memory.
-- At 4,096 tokens, hybrid memory was 42.9% lower than dense memory.
-- The hybrid method did not match dense-cache accuracy, but it provided a better balance between retrieval and memory than uniform StreamingLLM eviction.
+- Dense caching achieved 100% retrieval accuracy at 2,048 and 4,096 tokens.
+- Dense caching failed on all 8,192-token samples because of GPU memory usage.
+- StreamingLLM completed every sample but achieved 0% retrieval accuracy on this benchmark.
+- The hybrid cache completed every sample, including all 8,192-token samples.
+- Hybrid retrieval accuracy was 77.8% at 2,048 tokens, 88.9% at 4,096 tokens, and 66.7% at 8,192 tokens.
+- Compared with StreamingLLM, hybrid retrieval improved by 77.8, 88.9, and 66.7 percentage points at the three context lengths.
+- Hybrid memory was 15.0% lower than dense memory at 2,048 tokens.
+- Hybrid memory was 42.9% lower than dense memory at 4,096 tokens.
+- The hybrid method did not match dense-cache accuracy, but it provided a better quality-memory trade-off than uniform StreamingLLM eviction.
 
-## How to read the visualizations
+## Visualizations
 
-### Cache policy diagram
+The notebook produces visualizations showing:
 
-- Blue means full KV history is kept.
-- Green means sink tokens are kept.
-- Orange means recent tokens are kept.
-- Gray means middle tokens are removed.
+- Which tokens each cache policy keeps.
+- Where retrieval succeeds or fails.
+- Which configurations run out of memory.
+- The relationship between retrieval accuracy and peak memory.
 
-The hybrid method has two different cache behaviors because it separates retrieval groups from streaming groups.
+The most important visual is the retrieval-memory comparison. It shows whether a method can remain accurate without requiring the complete dense KV cache.
 
-### Retrieval outcome grid
-
-- Green means the hidden value was retrieved correctly.
-- Yellow means some samples succeeded and some failed.
-- Red means the completed samples failed.
-- Gray means the method ran out of memory.
-
-### Retrieval-memory plot
-
-- Higher position means better retrieval accuracy.
-- More left means lower memory use.
-- The best region is the upper-left area: high accuracy with low memory.
-
-## Repository contents
+## Repository structure
 
 ```text
 hybrid-streaming-attention/
@@ -192,32 +191,41 @@ hybrid-streaming-attention/
     └── retrieval_memory_tradeoff.png
 ```
 
-## Reproducibility
+## Reproduce the experiment
 
 1. Open the notebook in Google Colab.
-2. Enable a GPU runtime.
-3. Install the required packages.
-4. Run the notebook from beginning to end.
-5. Save the generated CSV files and visualizations.
-6. Compare the dense, StreamingLLM, and hybrid results.
+2. Select a GPU runtime.
+3. Install the pinned dependencies.
+4. Load `Qwen/Qwen2.5-7B-Instruct` in 4-bit mode.
+5. Generate the synthetic needle dataset.
+6. Run the dense, StreamingLLM, and hybrid experiments.
+7. Run the final results and visualization section.
+8. Save the generated CSV files and images.
 
-The reported memory values are measurements from the Colab run and may change slightly depending on the GPU type and runtime state.
+Memory results can change slightly depending on the Colab GPU and runtime state.
 
 ## Limitations
 
-- The benchmark uses synthetic contexts rather than real documents.
-- The model is a small 3B-parameter model selected for free Colab.
-- The hybrid head selection is a lightweight probe-based approximation.
-- This is not a complete reproduction of the official DuoAttention system.
-- The dense 8,192-token baseline could not run on the available GPU.
-- Retrieval accuracy is based on a small number of synthetic samples.
+- The dataset is synthetic rather than real-world text.
+- The experiment uses a small number of samples.
+- The model is a 7B model running in 4-bit mode.
+- The hybrid head selection is lightweight and not the full official DuoAttention calibration procedure.
+- The dense 8,192-token baseline could not run on the tested GPU.
+- The final reported hybrid results use the SDPA implementation, not the optional Triton decode path.
+- This project demonstrates the central idea of DuoAttention but should not be described as a complete reproduction.
 
 ## Conclusion
 
-This project shows the main weakness of uniform StreamingLLM eviction: it reduces memory but can lose distant facts.
+StreamingLLM reduces KV-cache memory by retaining sink and recent tokens, but the experiment shows that uniform eviction can destroy long-context retrieval.
 
-The hybrid cache improves this behavior by preserving full history for selected retrieval groups while applying StreamingLLM-style eviction to the remaining groups. In the experiment, the hybrid method retained long-context retrieval at 8,192 tokens, where dense caching ran out of memory, and performed substantially better than pure StreamingLLM.
+The hybrid cache improves this behavior by preserving full history for selected retrieval groups while applying bounded eviction to streaming groups.
 
-The project therefore demonstrates a practical research idea:
+In this experiment, the hybrid method:
 
-> Different attention groups may need different amounts of history.
+- Used less memory than dense caching at shorter contexts.
+- Completed contexts where dense caching ran out of memory.
+- Retrieved substantially more hidden information than pure StreamingLLM.
+
+The main lesson is:
+
+> Different attention groups may need different amounts of context history.
